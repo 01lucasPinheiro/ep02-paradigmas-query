@@ -1,0 +1,183 @@
+# EP02 - Casos de teste
+#
+# O trabalho sera exercitado com estas entradas. Rode todas antes de entregar.
+# Formato: comando -> resultado esperado
+#
+# Abra o programa sobre dados/filmes.csv, digite cada comando e confira a
+# resposta com a deste arquivo:
+#
+#     clojure -M:run dados/filmes.csv
+#
+# "ERRO" significa que a consulta deve ser recusada com uma linha comecando por
+# "ERRO:", sem derrubar o programa. O texto do motivo e livre, EXCETO quando o
+# caso diz "cita": ai a linha tem que nomear o que esta indicado.
+#
+# Respostas multilinha aparecem indentadas sob o comando.
+#
+# O arquivo dados/filmes.csv tem 8 registros, todos com todos os campos.
+
+# ---------------------------------------------------------------------------
+# Projecao e corte
+# ---------------------------------------------------------------------------
+
+QUERY contar                                   -> 8
+
+# Sem nenhum estagio, todos os registros, na ordem do arquivo
+QUERY                                          -> Cidade de Deus; 2002; drama; 8.60; 130
+                                                  Central do Brasil; 1998; drama; 8.00; 113
+                                                  O Auto da Compadecida; 2000; comedia; 8.60; 104
+                                                  Tropa de Elite; 2007; acao; 8.00; 115
+                                                  Bacurau; 2019; suspense; 7.40; 131
+                                                  Que Horas Ela Volta; 2015; drama; 7.70; 112
+                                                  Aquarius; 2016; drama; 7.50; 145
+                                                  Ainda Estou Aqui; 2024; drama; 8.20; 137
+
+QUERY limitar 3 | selecionar titulo            -> Cidade de Deus
+                                                  Central do Brasil
+                                                  O Auto da Compadecida
+
+# Sem selecionar, todos os campos na ordem do esquema
+QUERY onde titulo = "Aquarius"                 -> Aquarius; 2016; drama; 7.50; 145
+
+# Com selecionar, na ordem do selecionar, e nao na do esquema
+QUERY onde titulo = "Cidade de Deus" | selecionar ano, titulo
+                                               -> 2002; Cidade de Deus
+
+# ---------------------------------------------------------------------------
+# Ordenacao: estavel, empatados mantem a ordem do arquivo
+# ---------------------------------------------------------------------------
+
+QUERY ordenar por ano | limitar 3 | selecionar titulo, ano
+                                               -> Central do Brasil; 1998
+                                                  O Auto da Compadecida; 2000
+                                                  Cidade de Deus; 2002
+
+QUERY ordenar por nota desc | selecionar titulo, nota
+                                               -> Cidade de Deus; 8.60
+                                                  O Auto da Compadecida; 8.60
+                                                  Ainda Estou Aqui; 8.20
+                                                  Central do Brasil; 8.00
+                                                  Tropa de Elite; 8.00
+                                                  Que Horas Ela Volta; 7.70
+                                                  Aquarius; 7.50
+                                                  Bacurau; 7.40
+
+QUERY ordenar por nota | selecionar titulo, nota
+                                               -> Bacurau; 7.40
+                                                  Aquarius; 7.50
+                                                  Que Horas Ela Volta; 7.70
+                                                  Central do Brasil; 8.00
+                                                  Tropa de Elite; 8.00
+                                                  Ainda Estou Aqui; 8.20
+                                                  Cidade de Deus; 8.60
+                                                  O Auto da Compadecida; 8.60
+
+# ---------------------------------------------------------------------------
+# Expressoes: precedencia, parenteses, nao
+# ---------------------------------------------------------------------------
+
+QUERY onde (genero = "acao" ou genero = "suspense") e nao ano < 2010 | selecionar titulo
+                                               -> Bacurau
+
+# Sem parenteses, "e" liga antes de "ou": acao ou (suspense e ano < 2010)
+QUERY onde genero = "acao" ou genero = "suspense" e ano < 2010 | selecionar titulo
+                                               -> Tropa de Elite
+
+# Inteiro e decimal se comparam: 8 = 8.0
+QUERY onde nota = 8 | selecionar titulo -> Central do Brasil
+                                                  Tropa de Elite
+
+QUERY onde nota != 8.6 | contar                -> 6
+
+QUERY onde nao nota >= 8 | selecionar titulo
+                                               -> Bacurau
+                                                  Que Horas Ela Volta
+                                                  Aquarius
+
+# ---------------------------------------------------------------------------
+# Terminais
+# ---------------------------------------------------------------------------
+
+QUERY soma duracao                             -> 987
+QUERY soma nota                                -> 64.00
+QUERY media nota                               -> 8.00
+
+QUERY agrupar por genero com media duracao
+                                               -> acao; 115.00
+                                                  comedia; 104.00
+                                                  drama; 127.40
+                                                  suspense; 131.00
+
+QUERY agrupar por genero com soma duracao
+                                               -> acao; 115
+                                                  comedia; 104
+                                                  drama; 637
+                                                  suspense; 131
+
+QUERY agrupar por nota com contar              -> 7.40; 1
+                                                  7.50; 1
+                                                  7.70; 1
+                                                  8.00; 2
+                                                  8.20; 1
+                                                  8.60; 2
+
+QUERY onde ano >= 2010 | agrupar por genero com contar
+                                               -> drama; 3
+                                                  suspense; 1
+
+# ---------------------------------------------------------------------------
+# Resultados vazios
+# ---------------------------------------------------------------------------
+
+QUERY onde ano > 3000 | contar                 -> 0
+QUERY onde ano > 3000 | soma duracao           -> 0
+QUERY onde ano > 3000 | media nota             -> 0.00
+QUERY onde ano > 3000                          -> (vazio)
+QUERY onde ano > 3000 | agrupar por genero com contar
+                                                        -> (vazio)
+
+# ---------------------------------------------------------------------------
+# Erros de esquema: a consulta e recusada antes de executar
+# ---------------------------------------------------------------------------
+
+QUERY onde diretor = "x" ou estudio = "y"      -> ERRO (campo inexistente)
+QUERY selecionar titulo, pais, idioma          -> ERRO (campo inexistente)
+
+# Tres problemas de naturezas diferentes; basta reportar um
+QUERY onde ano = "x" e pais = "BR" | soma titulo
+                                -> ERRO (tipo incompativel, campo inexistente ou soma sobre texto)
+
+QUERY ordenar por diretor                      -> ERRO (cita diretor)
+QUERY soma titulo                              -> ERRO (soma exige numero: cita titulo)
+
+# ---------------------------------------------------------------------------
+# Erros de sintaxe: o motivo e livre
+# ---------------------------------------------------------------------------
+
+QUERY |                                        -> ERRO (estagio vazio)
+QUERY voar                                     -> ERRO (estagio desconhecido)
+QUERY onde titulo contem "de"                  -> ERRO (operador desconhecido)
+QUERY pular 2                                  -> ERRO (estagio desconhecido)
+QUERY limitar abc                              -> ERRO (numero esperado)
+QUERY contar | limitar 2                       -> ERRO (o terminal tem que ser o ultimo)
+QUERY selecionar titulo | onde ano > 2000
+                                               -> ERRO (selecionar tem que ser o ultimo)
+QUERY selecionar titulo | contar               -> ERRO (selecionar tem que ser o ultimo)
+QUERY minimo ano                               -> ERRO (estagio desconhecido)
+QUERY onde (ano > 2000                         -> ERRO (parentese sem fechar)
+QUERY ordenar ano                              -> ERRO (falta "por")
+QUERY agrupar por genero                       -> ERRO (falta "com <agregacao>")
+QUERY onde ano >                               -> ERRO (falta o literal)
+
+# ---------------------------------------------------------------------------
+# Robustez: nada aqui derruba o programa
+# ---------------------------------------------------------------------------
+
+                                               -> ERRO (linha em branco)
+query contar                                   -> ERRO (comandos sao em maiusculas)
+COMANDO_INEXISTENTE                            -> ERRO (comando desconhecido)
+
+# O programa continua de pe
+QUERY contar                                   -> 8
+
+EXIT                                           -> encerra o programa
